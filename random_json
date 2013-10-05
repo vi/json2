@@ -3,6 +3,9 @@ import json
 import random
 import sys
 
+# Created by _Vi in 2013; License: MIT or 2-clause BSD.
+
+
 maxlev = 3
 if len(sys.argv)>1: maxlev = int(sys.argv[1])
 

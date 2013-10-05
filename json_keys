@@ -1,6 +1,9 @@
 #!/usr/bin/python
 
-# output the list of dict keys used in input file
+# Created by _Vi in 2013; License: MIT or 2-clause BSD.
+
+
+# output the list of object keys used in the input file
 
 import json
 import sys

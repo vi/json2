@@ -3,6 +3,9 @@ from __future__ import print_function
 import json
 import sys
 
+# Created by _Vi in 2013; License: MIT or 2-clause BSD.
+
+
 if sys.version_info[0] < 3:
     str=unicode
 
