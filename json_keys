@@ -1,0 +1,29 @@
+#!/usr/bin/python
+
+# output the list of dict keys used in input file
+
+import json
+import sys
+
+f = sys.stdin
+
+if len(sys.argv)>1: f=open(sys.argv[1],"rt")
+
+
+dom = json.load(f)
+
+json_keys = set()
+
+def save_keys_from_hierarchy_to_json_keys(object_):
+    if type(object_) == list:
+        for i in range(0,len(object_)):
+            subobject = object_[i]
+            save_keys_from_hierarchy_to_json_keys(subobject)
+    elif type(object_) == dict:
+        for k,v in object_.items():
+            json_keys.add(k)
+            save_keys_from_hierarchy_to_json_keys(v)
+
+save_keys_from_hierarchy_to_json_keys(dom)
+
+sys.stdout.write("\n".join(list(json_keys)))

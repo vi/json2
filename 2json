@@ -1,0 +1,117 @@
+#!/usr/bin/env python
+
+from __future__ import print_function
+import json
+import os
+import re
+import sys
+
+if sys.version_info[0] < 3:
+    str=unicode
+
+f = sys.stdin
+
+if len(sys.argv)>1: f=open(sys.argv[1],"rt")
+
+def try_parse_int(x):
+    try:
+        return int(x)
+    except ValueError:
+        return None
+
+def try_parse_float(x):
+    try:
+        return float(x)
+    except ValueError:
+        return None
+    
+# corresponds to "mange_key" in json2
+def demangle_key(s):
+    if len(s) >= 2:
+        if s[0] == "\\":
+            if try_parse_float(s[1:]) is not None:
+                s = s[1:]
+    s = s\
+        .replace("\\n", "\n")\
+        .replace("\\r", "\r")\
+        .replace("\\t", "\t")\
+        .replace("\\|", "/")\
+        .replace("\\'", "\"")\
+        .replace("\\_", "=")\
+        .replace("\\0", "0")\
+        .replace("\\!", "\\")
+    return s
+
+# this function both assigns to the dereferenced arguments and returs them
+def descend_and_set(obj, pathcomps, val):
+    if (len(pathcomps)==0):
+        if type(obj) == str:
+            return obj + "\n" + val
+        return val
+    (head, tail) = (pathcomps[0], pathcomps[1:])
+    listkey = try_parse_int(head)
+    if listkey is not None and listkey>=0:
+        if obj is None:
+            return [None] * listkey + [descend_and_set(None,tail,val)]
+        elif type(obj) == list:
+            if(len(obj)<=listkey):
+                obj += [None] * (listkey - len(obj) + 1)
+            obj[listkey] = descend_and_set(obj[listkey],tail,val)
+            return obj
+        else:
+            raise Exception("Conflicting types: expected list, got "+str(type(obj)))
+    dictkey = demangle_key(head)
+    if obj is None:
+        return {dictkey: descend_and_set(None,tail,val)}
+    elif type(obj) == dict:
+        if dictkey not in obj:
+            obj[dictkey] = None
+        obj[dictkey] = descend_and_set(obj[dictkey],tail,val)
+        return obj
+    else:
+        raise Exception("Conflicting types: expected dict, got "+str(type(obj)))
+    
+def deserialize_righthand(st):
+    i = try_parse_int(st)
+    if i is not None: return i
+    f = try_parse_float(st)
+    if f is not None: return f
+    
+    if st == "false": return False
+    if st == "true": return True
+    
+    if st == "null": return None
+    if st == "[]": return []
+    if st == "{}": return {}
+    
+    # OK, it is a string
+    if len(st) > 0:
+        if st[0]=="\"": st=st[1:]
+    return st
+
+
+def read_json2_file(f):
+    answer = None
+    
+    for s in f.readlines():
+        if len(s):
+            if s[-1]=='\n': s=s[:-1]
+            
+            if s.find("=") == -1:
+                print("Invalid line "+s+"\n", file=sys.stderr)
+                continue
+            
+            (path,val) = s.split("=",1)
+            pathcomps = path.split("/")
+            
+            if len(pathcomps)>0 and pathcomps[0] == "":
+                pathcomps = pathcomps[1:]
+            
+            answer = descend_and_set(answer, pathcomps, deserialize_righthand(val))
+    return answer
+    
+    
+    
+obj = read_json2_file(f)
+json.dump(obj, sys.stdout)
+sys.stdout.write("\n")

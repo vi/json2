@@ -1,0 +1,52 @@
+#!/usr/bin/env python
+from __future__ import print_function
+import json
+import sys
+
+if sys.version_info[0] < 3:
+    str=unicode
+
+if len(sys.argv)!=3:
+    print("Usage: json_compare file1.json file2.json\n", file=sys.stderr)
+    sys.exit(2)
+    
+f1=open(sys.argv[1],"rt")
+f2=open(sys.argv[2],"rt")
+
+o1 = json.load(f1)
+o2 = json.load(f2)
+
+def compare_floats(x1, x2):
+    if x1 == x1: return True
+    k = (x1-x2)/(abs(x1)+abs(x2))
+    return k<0.0000001
+
+def compare_recursive(o1, o2, current_path):
+    def fail(x):
+        print(x + " at "+current_path+"\n",file=sys.stderr)
+        sys.exit(1)
+    
+    if type(o1) != type(o2):
+        fail("Mismatched types "+str(type(o1)) + " and "+str(type(o2)))
+    elif type(o1) in [int, str, type(None), bool]:
+        if o1 != o2:
+            fail(str(o1) +" != "+ str(o2))
+    elif type(o1) == float:
+        if not compare_floats(o1, o2):
+            fail(str(o1) +" != "+ str(o2))
+    elif type(o1) == list:
+        if len(o1) != len(o2):
+            fail("Mismatched list length: "+str(len(o1))+" and "+str(len(o2)))
+        for i in range(0,len(o1)):
+            compare_recursive(o1[i], o2[i], current_path+str(i)+"/")
+    elif type(o1) == dict:
+        if len(o1) != len(o2):
+            fail("Mismatched obj length: "+str(len(o1))+" and "+str(len(o2)))
+        for k,v in o1.items():
+            if k not in o2:
+                fail(k + " not found in the second object")
+            compare_recursive(o1[k], o2[k], current_path+k+"/")
+    else:
+        fail("unknown type")
+
+compare_recursive(o1,o2,"/")

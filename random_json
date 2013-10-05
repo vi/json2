@@ -1,0 +1,45 @@
+#!/usr/bin/env python
+import json
+import random
+import sys
+
+maxlev = 3
+if len(sys.argv)>1: maxlev = int(sys.argv[1])
+
+def random_string():
+    l = random.choice(range(0,8))
+    s = ""
+    for i in range(0,l):
+        s += random.choice(["a", "1", "0", ".", "-", "+", "_", "false", "true", "/", "=", "\\", "e", "{", "}", "[", "]", ","])
+    return s
+
+def random_hierarchy(maxlevel):
+    typeslist = []
+    typeslist += [list, dict]*maxlevel
+    typeslist += [int, float, str, None]
+    ty = random.choice(typeslist)
+    if ty == int:
+        return random.randint(-100,100)
+    elif ty == float:
+        return -200+100*random.random()
+    elif ty == str:
+        return random_string()
+    elif ty == None:
+        return None
+    elif ty == list:
+        l = random.choice([maxlevel-1,maxlevel-1,maxlevel]+list(range(0,4)))
+        li = []
+        for i in range(0,l):
+            li += [random_hierarchy(maxlevel-1)]
+        return li
+    elif ty == dict:
+        l = random.choice([maxlevel-1,maxlevel-1,maxlevel]+list(range(0,3)))
+        di = {}
+        for i in range(0,l):
+            k = random_string()
+            v = random_hierarchy(maxlevel-1)
+            di[k]=v
+        return di
+    
+json.dump(random_hierarchy(maxlev), sys.stdout)
+print("")

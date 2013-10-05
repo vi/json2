@@ -1,0 +1,105 @@
+#!/usr/bin/env python
+
+from __future__ import print_function
+import json
+import os
+import re
+import sys
+
+if sys.version_info[0] < 3:
+    str=unicode
+
+f = sys.stdin
+
+if len(sys.argv)>1: f=open(sys.argv[1],"rt")
+
+
+dom = json.load(f)
+#print(dom)
+
+def str2bool(v):
+    # http://stackoverflow.com/a/715468/266720
+    return v.lower() in ("yes", "true", "t", "1")
+
+always_output_stubs = str2bool(os.environ.get("JSON2_ALWAYS_STUBS","False"))
+always_mark_strings = str2bool(os.environ.get("JSON2_ALWAYS_MARK_STRINGS","False"))
+
+tricky_strings = set(["" 
+    ,"null"
+    ,"[]"
+    ,"{}"
+    ,"true"
+    ,"false"
+    ,"="
+    ,"NaN"
+    ,"Infinity"
+    ,"-Infinity"
+    ])
+    
+def is_number(s):
+    try:
+        float(s)
+        return True
+    except ValueError:
+        return False
+
+def can_be_misinterpreted(s):
+    if always_mark_strings: return True
+    if s.lower().strip() in tricky_strings: return True
+    if s.strip()[0] == '"': return True
+    if is_number(s): return True
+    return False
+
+
+# ensure the key does not have "/", "=" or "\n" in it
+# make sure to run test.sh if you change this fucntion
+def mangle_key(s):
+    if not s: return ""
+    s = s\
+        .replace("\\", "\\!")\
+        .replace("\n", "\\n")\
+        .replace("\r", "\\r")\
+        .replace("\t", "\\t")\
+        .replace("/", "\\|")\
+        .replace("\"", "\\'")\
+        .replace("=", "\\_")
+    if is_number(s): s="\\"+s;
+    return s
+        
+
+def recursive_outputter(file_, object_, prefix):
+    if type(object_) == int:
+        file_.write(prefix+"="+str(object_)+"\n")
+    elif type(object_) == float:
+        file_.write(prefix+"="+str(object_)+"\n")
+    elif type(object_) == bool:
+        file_.write(prefix+"="+ ("true" if object_ else "false") + "\n")
+    elif type(object_) == str:
+        splits = object_.split("\n")
+        mark_strings_here = always_mark_strings
+        if len(splits) > 1:
+            mark_strings_here = True
+        for s in object_.split("\n"):
+            if mark_strings_here or can_be_misinterpreted(s):
+                s='"'+s
+            file_.write(prefix+"="+s+"\n")
+    elif object_ is None:
+        file_.write(prefix+"=null\n")
+    elif type(object_) == list:
+        if always_output_stubs or len(object_)==0:
+            file_.write(prefix+"=[]\n") 
+        for i in range(0,len(object_)):
+            subobject = object_[i]
+            recursive_outputter(file_, subobject, prefix+"/"+str(i))
+    elif type(object_) == dict:
+        if always_output_stubs or len(object_)==0:
+            file_.write(prefix+"={}\n")
+        for k,v in object_.items():
+            #print((prefix,k,mangle_key(str(k))),file=sys.stderr)
+            recursive_outputter(file_, v, prefix+"/"+mangle_key(str(k)))
+    else:
+        raise Exception("Unknown type "+str(type(object_)))
+        
+            
+            
+recursive_outputter(sys.stdout, dom, "")
