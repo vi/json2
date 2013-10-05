@@ -1,0 +1,159 @@
+#!/usr/bin/env python
+
+# Created by _Vi in 2013; License: MIT or 2-clause BSD.
+
+from __future__ import print_function
+import json
+import os
+import re
+import sys
+
+if sys.version_info[0] < 3:
+    str=unicode
+
+f = sys.stdin
+
+out="."
+
+if len(sys.argv)!=3:
+    print("Usage: json2dir {file1.json|-} output_file_or_directory_to_be_created\n", file=sys.stderr)
+    sys.exit(2)
+    
+if sys.argv[1] != "-": f = open(sys.argv[1],"rt")
+out = sys.argv[2]
+
+
+dom = json.load(f)
+#print(dom)
+
+def str2bool(v):
+    # http://stackoverflow.com/a/715468/266720
+    return v.lower() in ("yes", "true", "t", "1")
+
+option_safefilenames = str2bool(os.environ.get("JSON2DIR_SAFEFILENAMES","True"))
+option_allowunicode = str2bool(os.environ.get("JSON2DIR_ALLOWUNICODE","True"))
+option_alwaystypefiles = str2bool(os.environ.get("JSON2DIR_ALWAYSTYPEFILES","False"))
+
+tricky_strings = set(["" 
+    ,"null"
+    ,"[]"
+    ,"{}"
+    ,"true"
+    ,"false"
+    ,"="
+    ,"NaN"
+    ,"Infinity"
+    ,"-Infinity"
+    ])
+    
+def is_number(s):
+    try:
+        float(s)
+        return True
+    except ValueError:
+        return False
+
+def can_be_misinterpreted(s):
+    if option_alwaystypefiles: return True
+    if s.lower().strip() in tricky_strings: return True
+    if s.strip()[0] == '"': return True
+    if is_number(s): return True
+    return False
+
+
+def mangle_key_character(m):
+    c=m.group(0)[0]
+    if c == "_": return "__"
+    if c == " ": return "_w_"
+    if c == "+": return "_p_"
+    if c == "-": return "_m_"
+    if c == "*": return "_a_"
+    if c == "/": return "_s_"
+    if c == ".": return "_d_"
+    if ord(c)>0x7F and option_allowunicode:
+        return c
+    return "_" + ("%x" % ord(c)) + "_"
+
+# filenames (apart from ".type", and ".$key.type") will always be [a-zA-Z0-9_]+
+def mangle_key_safe(s):
+    if s == "": return "_".encode("UTF-8")
+    return re.sub("[^a-zA-Z0-9]", mangle_key_character, s).encode("UTF-8")
+
+# Assuming any bytes in filenames apart from "/" and "\0" and empty string
+def mangle_key_preserving(s):
+    if s == "": return "_"
+    if s[0] in "_.": s = "_"+s
+    s = re.sub("_((?:lit)*)slash_", "_lit\\1slash_", s);
+    s = s.replace("_slash_","_");
+    s = s.replace("/","_slash_");
+    return s.encode("UTF-8")
+
+mangle_key = mangle_key_safe if option_safefilenames else mangle_key_preserving
+
+def trymkdir(x):
+    try:
+        os.mkdir(x)
+    except OSError:
+        pass; # assuming it's "Already exists" error
+
+j = os.path.join
+
+def writefile(outdir, filename, for_type_, content):
+    n = None
+    if for_type_:
+        n = j(outdir,"."+filename+".type")
+    else:
+        n = j(outdir,filename)
+    
+    with open(n,"wt") as f:
+            f.write(content)
+            
+def trywritefile(outdir, filename, for_type_, content):
+    try:
+        writefile(outdir, filename, for_type_, content)
+    except:
+        pass
+
+def recursive_outputter(outdir, object_, filename):
+    if option_alwaystypefiles:
+        writefile(outdir, filename, True, {
+                 int:"number\n"
+                ,str:"string\n"
+                ,bool:"boolean\n"
+                ,float:"number\n"
+                ,type(None):"null\n"
+                ,list:"array\n"
+                ,dict:"object\n"
+                }[type(object)]);
+    if type(object_) in [int, float]:
+        writefile(outdir, filename, False, str(object_)+"\n");
+    elif type(object_) == bool:
+        writefile(outdir, filename, False,
+            "true\n" if object_ else "false\n")
+    elif type(object_) == str:
+        writefile(outdir, filename, False, object_.encode("UTF-8"))
+        if not option_alwaystypefiles and can_be_misinterpreted(object_):    
+            writefile(outdir, filename, True, "string\n")
+    elif object_ is None:
+        writefile(outdir, filename, False, "null\n")
+    elif type(object_) == list:
+        trywritefile(outdir, filename, True, "array\n")
+        trymkdir(j(outdir,filename))
+        
+        # additional type declaration in case of part of JSON file copied somewhere
+        writefile(j(outdir,filename),".type", False, "array\n")
+
+        for i in range(0,len(object_)):
+            subobject = object_[i]
+            recursive_outputter(j(outdir,filename), subobject, str(i))
+    elif type(object_) == dict:
+        trymkdir(j(outdir,filename))
+        
+        for k,v in object_.items():
+            fn = mangle_key(k)
+            recursive_outputter(j(outdir,filename), v, fn)
+    else:
+        raise Exception("Unknown type "+str(type(object_)))
+
+(outdir, outfile) = os.path.split(out)
+recursive_outputter(outdir, dom, outfile)
