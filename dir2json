@@ -1,0 +1,162 @@
+#!/usr/bin/env python
+
+from __future__ import print_function
+import json
+import os
+import re
+import sys
+
+if sys.version_info[0] < 3:
+    str=unicode
+    chr=unichr
+
+
+if len(sys.argv)!=3:
+    print("Usage: json2dir input_directory_or_file_to_be_scanned {file1.json|-}\n", file=sys.stderr)
+    sys.exit(2)
+
+fout = sys.stdout
+if sys.argv[2] != "-": fout = open(sys.argv[2],"wt")
+
+di = sys.argv[1]
+
+j = os.path.join
+
+def readfile(di, filename, for_type_):
+    n = None
+    if for_type_:
+        n = j(di,"."+filename+".type")
+    else:
+        n = j(di,filename)
+    
+    with open(n,"rt") as f:
+        return f.read()
+
+# FIXME: code dup; these functions are the same as in "2json" 
+def try_parse_int(x):
+    try:
+        return int(x)
+    except ValueError:
+        return None
+
+def try_parse_float(x):
+    try:
+        return float(x)
+    except ValueError:
+        return None
+    
+def deserialize_righthand(st):
+    i = try_parse_int(st)
+    if i is not None: return i
+    f = try_parse_float(st)
+    if f is not None: return f
+    
+    if st == "false": return False
+    if st == "true": return True
+    
+    if st == "null": return None
+    if st == "[]": return []
+    if st == "{}": return {}
+    
+    # OK, it is a string
+    return st
+
+def str2bool(v):
+    # http://stackoverflow.com/a/715468/266720
+    return v.strip().lower() in ("yes", "true", "t", "1")
+
+
+
+def demangle_key_character(m):
+    c=m.group(0)
+    if c == "__" : return "_"
+    if c == "_w_": return " "
+    if c == "_p_": return "+"
+    if c == "_m_": return "-"
+    if c == "_a_": return "*"
+    if c == "_s_": return "/"
+    if c == "_d_": return "."
+    if c == "_n_": return "\n"
+    if c == "_r_": return "\r"
+    if c == "_t_": return "\t"
+    
+    # assuming it's "_hexdigits_" here
+    try:
+        c = c[1:-1]
+        ordd = int(c, 16)
+        return chr(ordd)
+    except:
+        return m.group(0)[0]
+
+# filenames (apart from ".type", and ".$key.type") will always be [a-zA-Z0-9_]+
+def demangle_key_safe(s):
+    if s == "_": return ""
+    return re.sub("\_[a-zA-Z0-9]*\_", demangle_key_character, s)
+
+# Assuming any bytes in filenames apart from "/" and "\0" and empty string
+def demangle_key_preserving(s):
+    if s == "_": return ""
+    if s[0] == "_":
+        if s[1] == "." or s[1] == "_":
+            s = s[1:]
+    s = s.replace("_slash_", "/");
+    s = s.replace("_zero_","\u0000");
+    s = re.sub("_lit((?:lit)*)slash_", "_\\1slash_", s);
+    s = re.sub("_lit((?:lit)*)zero_", "_\\1zero_", s);
+    return s
+
+
+
+
+
+
+def build_from_dir(d, fn):
+    t = None
+    if os.path.exists(j(d,"."+fn+".type")):
+        t = readfile(d,fn,True).strip()
+    
+    if not os.path.isdir(j(d,fn)):
+        forcestr = False
+        if t == "string":
+            forcestr = True
+        # the rest of types are not checked
+        
+        content = readfile(d,fn,False)
+        if len(content)>0 and content[-1] == '\n': content = content[:-1]
+        
+        if forcestr: return content
+        return deserialize_righthand(content)
+    
+    # is a directory
+    if os.path.exists(j(d,fn,".type")):
+        t = readfile(j(d,fn),".type",False).strip()
+        
+    if t=="array":
+        li = []
+        i = 0
+        while os.path.exists(j(d,fn,str(i))):
+            li.append(build_from_dir(j(d,fn),str(i)))
+            i = i + 1
+        return li
+    else:
+        # assuming "object"
+        safefilenames = True
+        if os.path.exists(j(d,"."+fn+".safefilenames")):
+            safefilenames = str2bool(readfile(d, "."+fn+".safefilenames", False))
+        if os.path.exists(j(d,fn,".safefilenames")):
+            safefilenames = str2bool(readfile(j(d,fn), ".safefilenames", False))
+            
+        dic = {}
+        for i in os.listdir(j(d,fn)):
+            if i[0] == '.': continue
+            key = demangle_key_safe(i) if safefilenames else demangle_key_preserving(i)
+            dic[key] = build_from_dir(j(d,fn), i)
+        return dic
+        
+
+(did, dif) = os.path.split(di)
+obj = build_from_dir(did, dif)
+
+
+json.dump(obj, fout)
+fout.write("\n")

@@ -1,3 +1,4 @@
 random/
+.*.type
 *.j2
 *.json

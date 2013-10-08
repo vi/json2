@@ -34,6 +34,7 @@ option_safefilenames = str2bool(os.environ.get("JSON2DIR_SAFEFILENAMES","True"))
 option_allowunicode = str2bool(os.environ.get("JSON2DIR_ALLOWUNICODE","True"))
 option_alwaystypefiles = str2bool(os.environ.get("JSON2DIR_ALWAYSTYPEFILES","False"))
 
+# FIXME: Code duplication with json2
 tricky_strings = set(["" 
     ,"null"
     ,"[]"
@@ -70,23 +71,27 @@ def mangle_key_character(m):
     if c == "*": return "_a_"
     if c == "/": return "_s_"
     if c == ".": return "_d_"
+    if c == "\n": return "_n_"
+    if c == "\r": return "_r_"
+    if c == "\t": return "_t_"
     if ord(c)>0x7F and option_allowunicode:
         return c
     return "_" + ("%x" % ord(c)) + "_"
 
 # filenames (apart from ".type", and ".$key.type") will always be [a-zA-Z0-9_]+
 def mangle_key_safe(s):
-    if s == "": return "_".encode("UTF-8")
-    return re.sub("[^a-zA-Z0-9]", mangle_key_character, s).encode("UTF-8")
+    if s == "": return "_"
+    return re.sub("[^a-zA-Z0-9]", mangle_key_character, s)
 
 # Assuming any bytes in filenames apart from "/" and "\0" and empty string
 def mangle_key_preserving(s):
     if s == "": return "_"
-    if s[0] in "_.": s = "_"+s
     s = re.sub("_((?:lit)*)slash_", "_lit\\1slash_", s);
-    s = s.replace("_slash_","_");
+    s = re.sub("_((?:lit)*)zero_", "_lit\\1zero_", s);
     s = s.replace("/","_slash_");
-    return s.encode("UTF-8")
+    s = s.replace("\u0000","_zero_");
+    if s[0] in "_.": s = "_"+s
+    return s
 
 mangle_key = mangle_key_safe if option_safefilenames else mangle_key_preserving
 
@@ -115,7 +120,7 @@ def trywritefile(outdir, filename, for_type_, content):
         pass
 
 def recursive_outputter(outdir, object_, filename):
-    if option_alwaystypefiles:
+    if option_alwaystypefiles or os.path.exists(j(outdir,"."+filename+".type")):
         writefile(outdir, filename, True, {
                  int:"number\n"
                 ,str:"string\n"
@@ -124,14 +129,14 @@ def recursive_outputter(outdir, object_, filename):
                 ,type(None):"null\n"
                 ,list:"array\n"
                 ,dict:"object\n"
-                }[type(object)]);
+                }[type(object_)]);
     if type(object_) in [int, float]:
         writefile(outdir, filename, False, str(object_)+"\n");
     elif type(object_) == bool:
         writefile(outdir, filename, False,
             "true\n" if object_ else "false\n")
     elif type(object_) == str:
-        writefile(outdir, filename, False, object_.encode("UTF-8"))
+        writefile(outdir, filename, False, object_+"\n")
         if not option_alwaystypefiles and can_be_misinterpreted(object_):    
             writefile(outdir, filename, True, "string\n")
     elif object_ is None:
@@ -148,6 +153,13 @@ def recursive_outputter(outdir, object_, filename):
             recursive_outputter(j(outdir,filename), subobject, str(i))
     elif type(object_) == dict:
         trymkdir(j(outdir,filename))
+        if not option_safefilenames:
+            writefile(j(outdir,filename),".safefilenames", False, "false\n")
+        if option_alwaystypefiles and option_safefilenames:
+            writefile(j(outdir,filename),".safefilenames", False, "true\n")
+        if option_alwaystypefiles or os.path.exists(j(outdir,filename,".type")) :
+            writefile(j(outdir,filename),".type", False, "object\n")
+            
         
         for k,v in object_.items():
             fn = mangle_key(k)
