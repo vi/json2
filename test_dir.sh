@@ -15,11 +15,21 @@ if [ "$FS" != "tmpfs" ]; then
     echo "You can set TMPDIR to some tmpfs location"
 fi
 
-while true; do
+function test2() {
+
     rm -Rf "$D"
+    mkdir -p "$D"
     ./random_json 6 > orig.json
-    ./json2dir orig.json "$D"
-    ./dir2json "$D" roundtripped.json
+    ./json2dir orig.json "$D"/o
+    ./dir2json "$D"/o roundtripped.json
     ./json_compare orig.json roundtripped.json
     printf '.'
+
+}
+
+while true; do
+    export JSON2DIR_SAFEFILENAMES=false
+    test2
+    export JSON2DIR_SAFEFILENAMES=true
+    test2
 done
