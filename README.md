@@ -15,6 +15,7 @@ Here there are two main tools plus several supplementrary ones:
 * random_json - generates random "tricky" JSON (with confusing strings, empty objects, etc.);
 * json_keys - gathers keys used for in objects in the JSON
 * test.sh - endless "fuzz test" of `json2 | 2json` using random_json and json_compare.
+* json2dir and dir2json - "unpacks" JSON to files and directories and back;
 
 Tested with Python 2.6, 2.7 and 3.2.
 
