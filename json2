@@ -10,6 +10,8 @@ import sys
 
 if sys.version_info[0] < 3:
     str=unicode
+else:
+    long=int
 
 f = sys.stdin
 
@@ -71,6 +73,8 @@ def mangle_key(s):
 
 def recursive_outputter(file_, object_, prefix):
     if type(object_) == int:
+        file_.write(prefix+"="+str(object_)+"\n")
+    if type(object_) == long:
         file_.write(prefix+"="+str(object_)+"\n")
     elif type(object_) == float:
         file_.write(prefix+"="+str(object_)+"\n")

@@ -10,6 +10,8 @@ import sys
 
 if sys.version_info[0] < 3:
     str=unicode
+else:
+    long=int
 
 f = sys.stdin
 
@@ -130,7 +132,7 @@ def recursive_outputter(outdir, object_, filename):
                 ,list:"array\n"
                 ,dict:"object\n"
                 }[type(object_)]);
-    if type(object_) in [int, float]:
+    if type(object_) in [int, float,long]:
         writefile(outdir, filename, False, str(object_)+"\n");
     elif type(object_) == bool:
         writefile(outdir, filename, False,
