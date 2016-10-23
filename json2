@@ -10,6 +10,8 @@ import sys
 
 if sys.version_info[0] < 3:
     str=unicode
+    import codecs
+    sys.stdout = codecs.getwriter('utf8')(sys.stdout)
 else:
     long=int
 
@@ -74,7 +76,7 @@ def mangle_key(s):
 def recursive_outputter(file_, object_, prefix):
     if type(object_) == int:
         file_.write(prefix+"="+str(object_)+"\n")
-    if type(object_) == long:
+    elif type(object_) == long:
         file_.write(prefix+"="+str(object_)+"\n")
     elif type(object_) == float:
         file_.write(prefix+"="+str(object_)+"\n")
@@ -88,7 +90,10 @@ def recursive_outputter(file_, object_, prefix):
         for s in object_.split("\n"):
             if mark_strings_here or can_be_misinterpreted(s):
                 s='"'+s
-            file_.write(prefix+"="+s+"\n")
+            try:
+                file_.write(prefix+"="+s+"\n")
+            except:
+                file_.write(prefix+"=error\n")
     elif object_ is None:
         file_.write(prefix+"=null\n")
     elif type(object_) == list:

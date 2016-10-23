@@ -10,6 +10,8 @@ import sys
 
 if sys.version_info[0] < 3:
     str=unicode
+    import codecs
+    open=lambda fn,mode: codecs.open(fn,mode,"UTF-8")
 else:
     long=int
 
