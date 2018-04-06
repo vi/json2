@@ -91,3 +91,8 @@ root for every line;
 * All tools load the entire input file in memory as a tree, 
 not "streamed".
 * Is may be poor option if you need to handle recursive JSON files.
+
+See also
+---
+
+* [gron](https://github.com/tomnomnom/gron)
