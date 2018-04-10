@@ -13,7 +13,7 @@ def random_string():
     l = random.choice(range(0,8))
     s = ""
     for i in range(0,l):
-        s += random.choice(["a", "1", "0", ".", "-", "+", "_", "false", "true", "/", "=", "\\", "e", "{", "}", "[", "]", ","])
+        s += random.choice(["a", "1", "0", ".", "-", "+", "_", "false", "true", "/", "=", "\\", "e", "{", "}", "[", "]", ",", "\r", "\n", "\n", " ", "\t"])
     return s
 
 def random_hierarchy(maxlevel):
