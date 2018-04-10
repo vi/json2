@@ -91,6 +91,8 @@ root for every line;
 * All tools load the entire input file in memory as a tree, 
 not "streamed".
 * Is may be poor option if you need to handle recursive JSON files.
+* There may be corner case incompabilitis between json2 format generated when executing by Python 2 and Python 3. For example `+ 1` is not considered a valid number of Python 3, hence not prepended with `\`.
+* Round-trip test fails on Python 2 in tricky corner case (involving tricky characters in keys) 
 
 See also
 ---
