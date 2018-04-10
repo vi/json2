@@ -47,7 +47,11 @@ def is_number(s):
         float(s)
         return True
     except ValueError:
-        return False
+        try:
+            int(s) # example: "+ 1" on Python 2
+            return True
+        except ValueError:
+            return False
 
 def can_be_misinterpreted(s):
     if always_mark_strings: return True
