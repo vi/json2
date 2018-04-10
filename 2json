@@ -47,7 +47,7 @@ def demangle_key(s):
 # this function both assigns to the dereferenced arguments and returs them
 def descend_and_set(obj, pathcomps, val):
     if (len(pathcomps)==0):
-        if type(obj) == str:
+        if type(obj) == str or type(obj) == __builtins__.str:
             return obj + "\n" + val
         return val
     (head, tail) = (pathcomps[0], pathcomps[1:])
